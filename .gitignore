@@ -1,4 +1,5 @@
 *.pyc
-.ignore
+.gitignore
 kanghe.csv
 .idea
+log.txt
