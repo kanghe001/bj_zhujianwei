@@ -9,23 +9,22 @@ class CrawlZhuJianWei(scrapy.Spider):
     start_urls = (
         'http://www.bjjs.gov.cn/tabid/3153/Default.aspx?ModelKey=FDCJY_HomePage_HousingManageList&projectID=5635926&systemID=2&srcId=1',
          )
+    result = {}
 
-    def __init__(self):
-        super(CrawlZhuJianWei, self).__init__()
-        self.result = {}
-        self.xiaoqu_detail = {}
-        self.lou_detail = {}
-        self.house_detail = {}
-
-    # 将文件中所有url读取出来然后制作url
+    # 将文件中所有url读取出来然后制作url请求调用parse函数
     def start_requests(self):
         f = file('/home/kanghe/all_url.txt', 'r')
         li = f.readlines()
         print li
         for url in li:
-            yield self.make_requests_from_url(url.strip('\n'))
+            yield self.make_requests_from_url(url.strip('\r\n'))
 
     def parse(self, response):
+        """
+        从页面中过滤出小区的基本信息和可出售的楼的url
+        :param response:
+        :return:
+        """
         # print "first_url: " + response.url
         xiaoqu_detail = {}
         all_row = response.xpath('//td[@id="ess_ctr6854_ContentPane"]/div[1]/div[1]/table[2]/tr[2]/td/span/table/tr')
@@ -34,7 +33,7 @@ class CrawlZhuJianWei(scrapy.Spider):
                 value = line.xpath("td[2]/text()").extract_first()
                 key = line.xpath("td[1]/text()").extract_first()
                 xiaoqu_detail[key] = value
-
+        # 楼号的URL
         detail_url = response.xpath('//table[@id="ess_ctr6854_FDCJY_SSHouse_Model_FDCJY_HomePage_HousingManageList_table_Buildinfo"]/tr/td[6]/a/@href').extract()
         for loupan_url_halt in detail_url:
             loupan_detail_url = response.urljoin(loupan_url_halt)
@@ -43,6 +42,12 @@ class CrawlZhuJianWei(scrapy.Spider):
             yield scrapy.Request(loupan_detail_url, callback=lambda response=response, xiaoqu_detail=xiaoqu_detail:self.loupan_detail(response, xiaoqu_detail))
 
     def loupan_detail(self, response, xiaoqu_detail):
+        """
+        进入所有的单元的页面，过滤出当前所在的楼，并逐个进入每一户url
+        :param response:
+        :param xiaoqu_detail:
+        :return:
+        """
         lou_detail = {}
         loufang_num = response.xpath("//span[@id='ess_ctr6854_FDCJY_SSHouse_Model_FDCJY_FloorInfo_Label_ProjectName']/text()").extract_first()
         if loufang_num:
@@ -58,9 +63,17 @@ class CrawlZhuJianWei(scrapy.Spider):
                     next_url = response.urljoin(half_url)
                     # print "kanghe: ",
                     # print self.lou_detail
-                    yield scrapy.Request(next_url, callback=lambda response=response, xiaoqu_detail=xiaoqu_detail, lou_detail=lou_detail: self.danyuan_detail(response, xiaoqu_detail, lou_detail))
+                    yield scrapy.Request(next_url, callback=lambda response=response, xiaoqu_detail=xiaoqu_detail,
+                                    lou_detail=lou_detail: self.danyuan_detail(response, xiaoqu_detail, lou_detail))
 
     def danyuan_detail(self, response, xiaoqu_detail, lou_detail):
+        """
+        获取每一户的信息，并输出到文件中
+        :param response:
+        :param xiaoqu_detail:
+        :param lou_detail:
+        :return:
+        """
         house_detail = {}
         print "danyuan_url: ",
         print response.url
@@ -78,30 +91,9 @@ class CrawlZhuJianWei(scrapy.Spider):
         if detail_list:
             for items in detail_list:
                 house_detail[items.split("|")[0]] = items.split("|")[1]
-        print "合并之前house_detail\n"
-        for key in house_detail:
-            print key + ": ",
-            print house_detail[key]
-        print "合并之前lou_detail\n"
-        for key in lou_detail:
-            print key + ": ",
-            print lou_detail[key]
-        print "合并之前xiaoqu_detail\n"
-        for key in xiaoqu_detail:
-            print key + ": ",
-            print xiaoqu_detail[key]
-        print "合并之前result: ",
-        print self.result
         self.result.update(xiaoqu_detail)
         self.result.update(lou_detail)
         self.result.update(house_detail)
 
-        print "len(result): ",
-        print len(self.result)
-        for key in self.result:
-            print str(key) + ":" + str(self.result[key]),
-        print "all_detail: ",
-        print self.house_detail, self.lou_detail, self.xiaoqu_detail
         yield self.result
         self.result.clear()
-

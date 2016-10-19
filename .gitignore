@@ -1,5 +1,3 @@
 *.pyc
 .gitignore
-kanghe.csv
-.idea
 log.txt
