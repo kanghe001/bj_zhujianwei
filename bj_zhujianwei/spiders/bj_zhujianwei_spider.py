@@ -37,7 +37,7 @@ class CrawlZhuJianWei(scrapy.Spider):
         """
         logging.debug("start a new xiaoqu %s" % response.url)
         # print "first_url: " + response.url
-        xiaoqu_detail = {}
+        xiaoqu_detail = {"小区URL": response.url}
         all_row = response.xpath('//td[@id="ess_ctr6854_ContentPane"]/div[1]/div[1]/table[2]/tr[2]/td/span/table/tr')
         for line in all_row:
             if line:
@@ -61,7 +61,7 @@ class CrawlZhuJianWei(scrapy.Spider):
         :return:
         """
         logging.debug("start a new loupan: %s" % response.url)
-        lou_detail = {}
+        lou_detail = {"楼盘URL": response.url}
         loufang_num = response.xpath("//span[@id='ess_ctr6854_FDCJY_SSHouse_Model_FDCJY_FloorInfo_Label_ProjectName']/text()").extract_first()
         if loufang_num:
             lou_detail["楼号"] = loufang_num
@@ -87,7 +87,7 @@ class CrawlZhuJianWei(scrapy.Spider):
         :param lou_detail:
         :return:
         """
-        house_detail = {}
+        house_detail = {"单元楼URL": response.url}
         print "danyuan_url: ",
         print response.url
         # self.house_detail.clear()
@@ -104,6 +104,7 @@ class CrawlZhuJianWei(scrapy.Spider):
         if detail_list:
             for items in detail_list:
                 house_detail[items.split("|")[0]] = items.split("|")[1]
+        logging.debug("self.result before update: %s" % self.result)
         self.result.update(xiaoqu_detail)
         self.result.update(lou_detail)
         self.result.update(house_detail)
