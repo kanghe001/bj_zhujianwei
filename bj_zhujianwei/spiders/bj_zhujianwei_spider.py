@@ -2,9 +2,19 @@
 # coding=utf-8
 
 import scrapy
+import json
+import codecs
+import logging
 
 
 class CrawlZhuJianWei(scrapy.Spider):
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format ="%(asctime)s %(filename)s[line:%(lineno)d %(levelname)s: %(message)s]",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        filename="bj_zjw.log",
+        filemode="w",
+    )
     name = "bj_zjw"
     start_urls = (
         'http://www.bjjs.gov.cn/tabid/3153/Default.aspx?ModelKey=FDCJY_HomePage_HousingManageList&projectID=5635926&systemID=2&srcId=1',
@@ -25,6 +35,7 @@ class CrawlZhuJianWei(scrapy.Spider):
         :param response:
         :return:
         """
+        logging.debug("start a new xiaoqu %s" % response.url)
         # print "first_url: " + response.url
         xiaoqu_detail = {}
         all_row = response.xpath('//td[@id="ess_ctr6854_ContentPane"]/div[1]/div[1]/table[2]/tr[2]/td/span/table/tr')
@@ -33,6 +44,7 @@ class CrawlZhuJianWei(scrapy.Spider):
                 value = line.xpath("td[2]/text()").extract_first()
                 key = line.xpath("td[1]/text()").extract_first()
                 xiaoqu_detail[key] = value
+        logging.debug("小区信息： %s" % json.dumps(xiaoqu_detail, ensure_ascii=False))
         # 楼号的URL
         detail_url = response.xpath('//table[@id="ess_ctr6854_FDCJY_SSHouse_Model_FDCJY_HomePage_HousingManageList_table_Buildinfo"]/tr/td[6]/a/@href').extract()
         for loupan_url_halt in detail_url:
@@ -48,13 +60,13 @@ class CrawlZhuJianWei(scrapy.Spider):
         :param xiaoqu_detail:
         :return:
         """
+        logging.debug("start a new loupan: %s" % response.url)
         lou_detail = {}
         loufang_num = response.xpath("//span[@id='ess_ctr6854_FDCJY_SSHouse_Model_FDCJY_FloorInfo_Label_ProjectName']/text()").extract_first()
         if loufang_num:
             lou_detail["楼号"] = loufang_num
         else:
             lou_detail["楼号"] = " "
-
         useful_line = response.xpath("//table[@id='ess_ctr6854_FDCJY_SSHouse_Model_FDCJY_FloorInfo_table_Buileing']/tr")[1:]
         for line in useful_line:
             each_danyuan_url = line.xpath("td/a/@href").extract()
@@ -67,6 +79,7 @@ class CrawlZhuJianWei(scrapy.Spider):
                                     lou_detail=lou_detail: self.danyuan_detail(response, xiaoqu_detail, lou_detail))
 
     def danyuan_detail(self, response, xiaoqu_detail, lou_detail):
+        logging.debug('current danyuan detail url: %s' % response.url)
         """
         获取每一户的信息，并输出到文件中
         :param response:
@@ -94,6 +107,11 @@ class CrawlZhuJianWei(scrapy.Spider):
         self.result.update(xiaoqu_detail)
         self.result.update(lou_detail)
         self.result.update(house_detail)
-
+        result = json.dumps(self.result, ensure_ascii=False)
+        print result
+        logging.debug('全部信息： %s' % result)
+        logfile = codecs.open('./kanghe.json', 'a', 'utf-8')
+        logfile.write(result + '\r\n')
+        logfile.close()
         yield self.result
         self.result.clear()
